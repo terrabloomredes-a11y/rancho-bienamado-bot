@@ -12,4 +12,4 @@ RUN npm run build
 
 EXPOSE 3008
 
-CMD [“npm”, “start”]
+CMD ["npm", "start"]
