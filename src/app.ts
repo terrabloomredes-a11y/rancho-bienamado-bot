@@ -54,6 +54,192 @@ const ACTION_MENU_BUTTONS = [
     { body: '3️⃣ Menú principal' },
 ]
 
+const FAQ_TOPICS = [
+    { key: '1', label: 'Beneficios' },
+    { key: '2', label: 'Precio' },
+    { key: '3', label: 'Presentacion/tamano' },
+    { key: '4', label: 'Ingredientes/proceso' },
+    { key: '5', label: 'Consumo/conservacion' },
+]
+
+const buildFaqMenuMessage = (title: string) => {
+    const lines = FAQ_TOPICS.map((topic) => `${topic.key}️⃣ ${topic.label}`)
+    return `
+❓ DUDAS SOBRE ${title}
+
+Elige una pregunta:
+
+${lines.join('\n')}
+\n🏠 Menu principal\n🧾 Hacer pedido\n`
+}
+
+const buildFaqButtons = () => [
+    { body: '1️⃣ Beneficios' },
+    { body: '2️⃣ Precio' },
+    { body: '3️⃣ Presentacion/tamano' },
+    { body: '4️⃣ Ingredientes/proceso' },
+    { body: '5️⃣ Consumo/conservacion' },
+    { body: '🧾 Hacer pedido' },
+    { body: '🏠 Menu principal' },
+]
+
+const handleFaqMenu = async (ctx, { gotoFlow, flowDynamic, state }) => {
+    const text = (ctx.body ?? '').toLowerCase().trim()
+    const answers = state.get('faqAnswers') || {}
+
+    if (text.includes('pedido') || text.includes('comprar')) return gotoFlow(pedidoFlow)
+    if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+
+    if (text.startsWith('1') || text.includes('beneficio')) {
+        await flowDynamic(answers.beneficios ?? 'Beneficios no disponibles por ahora.')
+        return gotoFlow(state.get('faqReturnFlow'))
+    }
+    if (text.startsWith('2') || text.includes('precio')) {
+        await flowDynamic(answers.precio ?? 'Precio no disponible por ahora.')
+        return gotoFlow(state.get('faqReturnFlow'))
+    }
+    if (text.startsWith('3') || text.includes('presentacion') || text.includes('presentación') || text.includes('tamano') || text.includes('tamaño')) {
+        await flowDynamic(answers.presentacion ?? 'Presentacion no disponible por ahora.')
+        return gotoFlow(state.get('faqReturnFlow'))
+    }
+    if (text.startsWith('4') || text.includes('ingrediente') || text.includes('proceso')) {
+        await flowDynamic(answers.ingredientes ?? 'Ingredientes/proceso no disponible por ahora.')
+        return gotoFlow(state.get('faqReturnFlow'))
+    }
+    if (text.startsWith('5') || text.includes('consumo') || text.includes('conservacion') || text.includes('conservación')) {
+        await flowDynamic(answers.consumo ?? 'Consumo/conservacion no disponible por ahora.')
+        return gotoFlow(state.get('faqReturnFlow'))
+    }
+
+    await flowDynamic('Escribe 1, 2, 3, 4 o 5 para continuar, o elige Menu principal/Hacer pedido.')
+}
+
+const kombuchaFaqFlow = addKeyword<Provider, Database>(['duda kombucha', 'kombucha duda'])
+    .addAnswer(buildFaqMenuMessage('KOMBUCHA'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: kombuchaFaqFlow,
+            faqAnswers: {
+                beneficios: 'Ayuda a la digestion y aporta probioticos naturales. (Ajustar segun receta).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Presentaciones: 250 ml y 500 ml (si aplica).',
+                ingredientes: 'Te verde o negro, azucar y cultivo de kombucha. Proceso fermentado artesanal.',
+                consumo: 'Tomar frio. Agitar suave. Conservar refrigerado. Consumir preferente en 5-7 dias.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const kefirFaqFlow = addKeyword<Provider, Database>(['duda kefir', 'duda kéfir', 'kefir duda', 'kéfir duda'])
+    .addAnswer(buildFaqMenuMessage('KEFIR'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: kefirFaqFlow,
+            faqAnswers: {
+                beneficios: 'Aporta probioticos y puede apoyar la salud intestinal. (Ajustar segun receta).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Bebible 250 ml y untable 250 g.',
+                ingredientes: 'Leche y granos de kefir; fermentacion artesanal controlada.',
+                consumo: 'Consumir frio. Conservar refrigerado. Ideal en desayunos o colaciones.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const vinagreFaqFlow = addKeyword<Provider, Database>(['duda vinagre', 'duda vinagres', 'vinagre duda'])
+    .addAnswer(buildFaqMenuMessage('VINAGRES ARTESANALES'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: vinagreFaqFlow,
+            faqAnswers: {
+                beneficios: 'Puede apoyar digestiones ligeras y realzar sabores. (Ajustar segun receta).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Botella 500 ml. Sabores: manzana, pera y albahaca.',
+                ingredientes: 'Fruta natural y fermentacion artesanal.',
+                consumo: 'Ideal para ensaladas o aderezos. Conservar en lugar fresco.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const mielFaqFlow = addKeyword<Provider, Database>(['duda miel', 'miel duda'])
+    .addAnswer(buildFaqMenuMessage('MIEL NATURAL'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: mielFaqFlow,
+            faqAnswers: {
+                beneficios: 'Endulzante natural y fuente de energia. (Ajustar segun origen).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Frasco 350 g.',
+                ingredientes: 'Miel 100% natural sin aditivos.',
+                consumo: 'Ideal en bebidas o postres. Conservar cerrada, lejos del sol.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const cafeFaqFlow = addKeyword<Provider, Database>(['duda cafe', 'duda café', 'cafe duda', 'café duda'])
+    .addAnswer(buildFaqMenuMessage('CAFE ARTESANAL'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: cafeFaqFlow,
+            faqAnswers: {
+                beneficios: 'Aroma intenso y sabor autentico. (Ajustar segun tu cafe).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Presentacion artesanal (definir gramos).',
+                ingredientes: 'Cafe seleccionado y tostado artesanalmente.',
+                consumo: 'Moler al momento si es en grano. Conservar en frasco hermetico.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const sabilaFaqFlow = addKeyword<Provider, Database>(['duda sabila', 'duda sábila', 'sabila duda', 'sábila duda'])
+    .addAnswer(buildFaqMenuMessage('SABILA'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: sabilaFaqFlow,
+            faqAnswers: {
+                beneficios: 'Planta con multiples usos cosmeticos y de cuidado personal. (Ajustar).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Planta en maceta o esqueje (definir).',
+                ingredientes: 'Planta natural de sabila.',
+                consumo: 'Te orientamos para uso adecuado. Conservar en lugar ventilado.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
+const carneFaqFlow = addKeyword<Provider, Database>(['duda carne', 'duda cordero', 'carne duda', 'cordero duda'])
+    .addAnswer(buildFaqMenuMessage('CARNE DE CORDERO'), {
+        capture: true,
+        buttons: buildFaqButtons(),
+    }, async (ctx, tools) => {
+        tools.state.update({
+            faqReturnFlow: carneFaqFlow,
+            faqAnswers: {
+                beneficios: 'Carne de alta calidad de libre pastoreo. (Ajustar).',
+                precio: 'Precio: $___ (ajustar).',
+                presentacion: 'Cortes disponibles por kg y presentaciones de 500 g.',
+                ingredientes: 'Carne fresca de cordero.',
+                consumo: 'Conservar refrigerado o congelado. Coccion a gusto.',
+            },
+        })
+        return handleFaqMenu(ctx, tools)
+    })
+
 const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar'])
     .addAnswer(`
 Gracias por tu pedido. En un momento el admin o el dueño te contacta para terminarlo.
@@ -63,10 +249,44 @@ Si quieres adelantar información, escribe tu nombre, producto y cantidad.
 
 const dudaFlow = addKeyword<Provider, Database>(['duda', 'pregunta', 'consulta'])
     .addAnswer(`
-Gracias por tu mensaje. En un momento respondemos tu duda.
+Entiendo, quieres resolver una duda.
+Selecciona el producto para ayudarte mejor:
 
-Escribe tu pregunta y con gusto te ayudamos.
-`)
+1️⃣ Kombucha
+2️⃣ Kefir
+3️⃣ Vinagres Artesanales
+4️⃣ Miel Natural
+5️⃣ Cafe Artesanal
+6️⃣ Sabila
+7️⃣ Carne de Cordero Premium
+
+O escribe "Hacer pedido" si ya deseas comprar.
+`, {
+        capture: true,
+        buttons: [
+            { body: '1️⃣ Kombucha' },
+            { body: '2️⃣ Kefir' },
+            { body: '3️⃣ Vinagres Artesanales' },
+            { body: '4️⃣ Miel Natural' },
+            { body: '5️⃣ Cafe Artesanal' },
+            { body: '6️⃣ Sabila' },
+            { body: '7️⃣ Carne de Cordero Premium' },
+            { body: '🧾 Hacer pedido' },
+            { body: '🏠 Menu principal' },
+        ],
+    }, async (ctx, { gotoFlow, flowDynamic }) => {
+        const text = (ctx.body ?? '').toLowerCase().trim()
+        if (text.includes('pedido') || text.includes('comprar')) return gotoFlow(pedidoFlow)
+        if (text.startsWith('1') || text.includes('kombucha')) return gotoFlow(kombuchaFaqFlow)
+        if (text.startsWith('2') || text.includes('kefir') || text.includes('kéfir')) return gotoFlow(kefirFaqFlow)
+        if (text.startsWith('3') || text.includes('vinagre')) return gotoFlow(vinagreFaqFlow)
+        if (text.startsWith('4') || text.includes('miel')) return gotoFlow(mielFaqFlow)
+        if (text.startsWith('5') || text.includes('cafe') || text.includes('café')) return gotoFlow(cafeFaqFlow)
+        if (text.startsWith('6') || text.includes('sabila') || text.includes('sábila')) return gotoFlow(sabilaFaqFlow)
+        if (text.startsWith('7') || text.includes('cordero') || text.includes('carne')) return gotoFlow(carneFaqFlow)
+        if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+        await flowDynamic('Escribe un numero del 1 al 7, o elige Menu principal/Hacer pedido.')
+    })
 
 const contactFlow = addKeyword<Provider, Database>([
     'hablar',
@@ -323,6 +543,13 @@ const main = async () => {
         sabilaFlow,
         sabilaContactFlow,
         carneFlow,
+        kombuchaFaqFlow,
+        kefirFaqFlow,
+        vinagreFaqFlow,
+        mielFaqFlow,
+        cafeFaqFlow,
+        sabilaFaqFlow,
+        carneFaqFlow,
         rackFrancesFlow,
         rackChopsFlow,
         tboneFlow,
