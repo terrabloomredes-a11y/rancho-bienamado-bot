@@ -77,6 +77,30 @@ const PRODUCT_OPTIONS = [
     { label: 'Carne de Cordero Premium', keywords: ['carne', 'cordero', '7'] },
 ]
 
+const ORDER_MENU_MESSAGE = `
+Agrega productos a tu pedido:
+
+1️⃣ Kombucha
+2️⃣ Kefir
+3️⃣ Vinagres Artesanales
+4️⃣ Miel Natural
+5️⃣ Cafe Artesanal
+6️⃣ Sabila
+7️⃣ Carne de Cordero Premium
+8️⃣ Terminar pedido
+`
+
+const ORDER_MENU_BUTTONS = [
+    { body: '1️⃣ Kombucha' },
+    { body: '2️⃣ Kefir' },
+    { body: '3️⃣ Vinagres Artesanales' },
+    { body: '4️⃣ Miel Natural' },
+    { body: '5️⃣ Cafe Artesanal' },
+    { body: '6️⃣ Sabila' },
+    { body: '7️⃣ Carne de Cordero Premium' },
+    { body: '8️⃣ Terminar pedido' },
+]
+
 const parseProduct = (text: string) => {
     const normalized = normalizeText(text)
     const match = PRODUCT_OPTIONS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
@@ -88,22 +112,6 @@ const parseQuantity = (text: string) => {
     if (!match) return null
     const value = Number(match[0])
     return Number.isFinite(value) && value > 0 ? value : null
-}
-
-const parseBulkOrder = (text: string) => {
-    const normalized = normalizeText(text)
-    if (!normalized) return null
-    const parts = normalized.split(/,|\by\b|\band\b|\n/).map((part) => part.trim()).filter(Boolean)
-    if (!parts.length) return null
-
-    const items = parts.map((part) => {
-        const product = parseProduct(part)
-        const quantity = parseQuantity(part)
-        return product && quantity ? { product, quantity } : null
-    })
-
-    if (items.some((item) => item === null)) return null
-    return items.length ? (items as Array<{ product: string; quantity: number }>) : null
 }
 
 const buildFaqMenuMessage = (title: string) => {
@@ -289,28 +297,28 @@ const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar'])
 Gracias por tu pedido.
 
 Vamos a agregar productos a tu carrito.
-Puedes escribir todo junto, por ejemplo: "5 kefir, 1 miel y 1 kombucha".
-Tambien puedes escribir: "kefir 5" o "kefir x5".
 `, null, async (_ctx, { state, gotoFlow }) => {
-        state.update({ cart: [], pendingProduct: null })
+        const lastProduct = state.get('lastProduct')
+        state.update({ cart: [], pendingProduct: lastProduct ?? null })
+        if (lastProduct) return gotoFlow(addQuantityFlow)
         return gotoFlow(addProductFlow)
     })
 
 const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
-    .addAnswer('Que producto deseas agregar? (Ej: Kefir, Miel, Kombucha, Kefir 5, Kefir x5)', { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
-        const bulkItems = parseBulkOrder(ctx.body ?? '')
-        if (bulkItems && bulkItems.length) {
+    .addAnswer(ORDER_MENU_MESSAGE, { capture: true, buttons: ORDER_MENU_BUTTONS }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+        const text = normalizeText(ctx.body)
+        if (text.startsWith('8') || text.includes('terminar') || text.includes('finalizar') || text.includes('listo')) {
             const cart = state.get('cart') || []
-            cart.push(...bulkItems)
-            state.update({ cart, pendingProduct: null })
-            const resumen = bulkItems.map((item) => `• ${item.quantity} ${item.product}`).join('\n')
-            await flowDynamic(`Agregado al carrito:\n${resumen}`)
-            return gotoFlow(addMoreFlow)
+            if (!cart.length) {
+                await flowDynamic('Tu pedido esta vacio. Agrega al menos un producto para continuar.')
+                return gotoFlow(addProductFlow)
+            }
+            return gotoFlow(datosEntregaFlow)
         }
 
         const product = parseProduct(ctx.body ?? '')
         if (!product) {
-            await flowDynamic('No identifique el producto. Escribe: Kombucha, Kefir, Vinagres, Miel, Cafe, Sabila o Carne de Cordero.')
+            await flowDynamic('No identifique el producto. Elige una opcion del 1 al 8.')
             return gotoFlow(addProductFlow)
         }
         state.update({ pendingProduct: product })
@@ -325,9 +333,10 @@ const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
             return gotoFlow(addQuantityFlow)
         }
         const product = state.get('pendingProduct')
+        if (!product) return gotoFlow(addProductFlow)
         const cart = state.get('cart') || []
-        if (product) cart.push({ product, quantity })
-        state.update({ cart, pendingProduct: null })
+        cart.push({ product, quantity })
+        state.update({ cart, pendingProduct: null, lastProduct: null })
         await flowDynamic(`Agregado: ${quantity} ${product}.`)
         return gotoFlow(addMoreFlow)
     })
@@ -345,13 +354,7 @@ const addMoreFlow = addKeyword<Provider, Database>(['__add_more__'])
     })
 
 const datosEntregaFlow = addKeyword<Provider, Database>(['__datos_entrega__'])
-    .addAnswer('Perfecto. Ahora necesito tus datos para la entrega en la zona de Tula y alrededores.', null, async (_ctx, { state, flowDynamic }) => {
-        const cart = state.get('cart') || []
-        if (cart.length) {
-            const resumen = cart.map((item) => `• ${item.quantity} ${item.product}`).join('\n')
-            await flowDynamic(`Resumen del pedido:\n${resumen}`)
-        }
-    })
+    .addAnswer('Perfecto. Ahora necesito tus datos para la entrega.', null, async () => {})
     .addAnswer('Nombre completo:', { capture: true }, async (ctx, { state }) => {
         const nombre = (ctx.body ?? '').trim()
         if (nombre) state.update({ nombre })
@@ -367,6 +370,10 @@ const datosEntregaFlow = addKeyword<Provider, Database>(['__datos_entrega__'])
     .addAnswer('Direccion completa y referencias:', { capture: true }, async (ctx, { state, flowDynamic }) => {
         const direccion = (ctx.body ?? '').trim()
         if (direccion) state.update({ direccion })
+        const cart = state.get('cart') || []
+        const resumen = cart.length ? cart.map((item) => `• ${item.quantity} ${item.product}`).join('\n') : 'Sin productos registrados.'
+        await flowDynamic(`Resumen del pedido:\n${resumen}`)
+        await flowDynamic('Entregamos personalmente en Tula y alrededores. Si eres de otro lugar, tomamos tus datos para envio por paqueteria.')
         await flowDynamic('Gracias. En un momento te contactamos para confirmar tu pedido y la entrega.')
     })
 
@@ -459,7 +466,9 @@ Café seleccionado cuidadosamente para ofrecer una experiencia auténtica en cad
 • Café artesanal
 
 ⚠️ Actualmente agotado.
-`)
+`, null, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Cafe Artesanal' })
+    })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 const mielFlow = addKeyword<Provider, Database>(['miel', 'miel natural'])
@@ -469,7 +478,9 @@ const mielFlow = addKeyword<Provider, Database>(['miel', 'miel natural'])
 Miel artesanal producida de manera natural.
 📦 Presentación:
 • 350 g
-`, { media: './assets/catalogoimagenes/miel.jpg.png' })
+`, { media: './assets/catalogoimagenes/miel.jpg.png' }, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Miel Natural' })
+    })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 const kefirFlow = addKeyword<Provider, Database>(['kefir', 'kéfir'])
@@ -480,7 +491,9 @@ Fermento artesanal rico en probióticos.
 📦 Presentaciones:
 • Bebible 250 ml
 • Untable 250 g
-`, { media: './assets/catalogoimagenes/kefirbebible.jpg.png' })
+`, { media: './assets/catalogoimagenes/kefirbebible.jpg.png' }, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Kefir' })
+    })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 const kombuchaFlow = addKeyword<Provider, Database>(['kombucha'])
@@ -491,7 +504,9 @@ Bebida fermentada naturalmente.
 📦 Presentaciones:
 • 250 ml
 • 500 ml (agotada)
-`, { media: './assets/catalogoimagenes/kombucha.jpg.png' })
+`, { media: './assets/catalogoimagenes/kombucha.jpg.png' }, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Kombucha' })
+    })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 const vinagreFlow = addKeyword<Provider, Database>(['vinagre', 'vinagres', 'vinagres artesanales'])
@@ -505,7 +520,9 @@ Sabores:
 • Manzana
 • Pera
 • Albahaca
-`, { media: './assets/catalogoimagenes/vinagremanzana.jpg.png' })
+`, { media: './assets/catalogoimagenes/vinagremanzana.jpg.png' }, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Vinagres Artesanales' })
+    })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 const sabilaFlow = addKeyword<Provider, Database>(['sabila', 'sábila'])
@@ -515,7 +532,9 @@ const sabilaFlow = addKeyword<Provider, Database>(['sabila', 'sábila'])
 Contamos con plantas de sábila y asesoría relacionada con su manejo.
 Para la asesoría de sábila te atenderemos por este número: 7721603207.
 Debido a que cada caso es diferente, la información y cotizaciones se brindan de forma personalizada.
-`, { media: './assets/catalogoimagenes/sabila.png' })
+`, { media: './assets/catalogoimagenes/sabila.png' }, async (_ctx, { state }) => {
+        state.update({ lastProduct: 'Sabila' })
+    })
 
 const sabilaContactFlow = addKeyword<Provider, Database>(['sabila asesor', 'sábila asesor'])
     .addAnswer(`
@@ -554,7 +573,8 @@ Selecciona un corte:
             { body: '9️⃣ Gaoneras (500 g)' },
             { body: '🏠 Menú principal' },
         ],
-    }, async (ctx, { gotoFlow, flowDynamic }) => {
+    }, async (ctx, { gotoFlow, flowDynamic, state }) => {
+        state.update({ lastProduct: 'Carne de Cordero Premium' })
         const text = normalizeText(ctx.body)
         if (text.startsWith('1') || text.includes('rack francés') || text.includes('rack frances')) return gotoFlow(rackFrancesFlow)
         if (text.startsWith('2') || text.includes('rack chops')) return gotoFlow(rackChopsFlow)
