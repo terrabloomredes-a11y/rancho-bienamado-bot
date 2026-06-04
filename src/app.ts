@@ -62,6 +62,50 @@ const FAQ_TOPICS = [
     { key: '5', label: 'Consumo/conservacion' },
 ]
 
+const normalizeText = (value: string | undefined | null) => (value ?? '').toLowerCase().trim()
+
+const isYes = (text: string) => text === 'si' || text === 'sí' || text.startsWith('s')
+const isNo = (text: string) => text === 'no' || text.startsWith('n')
+
+const PRODUCT_OPTIONS = [
+    { label: 'Kombucha', keywords: ['kombucha', '1'] },
+    { label: 'Kefir', keywords: ['kefir', 'kéfir', '2'] },
+    { label: 'Vinagres Artesanales', keywords: ['vinagre', 'vinagres', '3'] },
+    { label: 'Miel Natural', keywords: ['miel', '4'] },
+    { label: 'Cafe Artesanal', keywords: ['cafe', 'café', '5'] },
+    { label: 'Sabila', keywords: ['sabila', 'sábila', '6'] },
+    { label: 'Carne de Cordero Premium', keywords: ['carne', 'cordero', '7'] },
+]
+
+const parseProduct = (text: string) => {
+    const normalized = normalizeText(text)
+    const match = PRODUCT_OPTIONS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
+    return match?.label ?? null
+}
+
+const parseQuantity = (text: string) => {
+    const match = text.match(/\d+/)
+    if (!match) return null
+    const value = Number(match[0])
+    return Number.isFinite(value) && value > 0 ? value : null
+}
+
+const parseBulkOrder = (text: string) => {
+    const normalized = normalizeText(text)
+    if (!normalized) return null
+    const parts = normalized.split(/,|\by\b|\band\b|\n/).map((part) => part.trim()).filter(Boolean)
+    if (!parts.length) return null
+
+    const items = parts.map((part) => {
+        const product = parseProduct(part)
+        const quantity = parseQuantity(part)
+        return product && quantity ? { product, quantity } : null
+    })
+
+    if (items.some((item) => item === null)) return null
+    return items.length ? (items as Array<{ product: string; quantity: number }>) : null
+}
+
 const buildFaqMenuMessage = (title: string) => {
     const lines = FAQ_TOPICS.map((topic) => `${topic.key}️⃣ ${topic.label}`)
     return `
@@ -84,7 +128,7 @@ const buildFaqButtons = () => [
 ]
 
 const handleFaqMenu = async (ctx, { gotoFlow, flowDynamic, state }) => {
-    const text = (ctx.body ?? '').toLowerCase().trim()
+    const text = normalizeText(ctx.body)
     const answers = state.get('faqAnswers') || {}
 
     if (text.includes('pedido') || text.includes('comprar')) return gotoFlow(pedidoFlow)
@@ -244,23 +288,69 @@ const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar'])
     .addAnswer(`
 Gracias por tu pedido.
 
-Para avanzar mas rapido, escribe:
-• Producto(s)
-• Cantidad
-`, { capture: true }, async (ctx, { state, flowDynamic }) => {
-        const pedido = (ctx.body ?? '').trim()
-        if (pedido) state.update({ pedido })
-        await flowDynamic('Quieres agregar algo mas? Responde "Si" o "No".')
+Vamos a agregar productos a tu carrito.
+Puedes escribir todo junto, por ejemplo: "5 kefir, 1 miel y 1 kombucha".
+Tambien puedes escribir: "kefir 5" o "kefir x5".
+`, null, async (_ctx, { state, gotoFlow }) => {
+        state.update({ cart: [], pendingProduct: null })
+        return gotoFlow(addProductFlow)
     })
-    .addAnswer('Quieres agregar algo mas? Responde "Si" o "No".', { capture: true }, async (ctx, { gotoFlow, flowDynamic, state }) => {
-        const text = (ctx.body ?? '').toLowerCase().trim()
-        if (text.startsWith('s') || text.includes('si')) return gotoFlow(welcomeFlow)
-        if (text.startsWith('n') || text.includes('no')) {
-            state.update({ pedidoConfirmado: true })
-            await flowDynamic('Perfecto. Ahora necesito tus datos para la entrega en la zona de Tula y alrededores.')
-            return
+
+const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
+    .addAnswer('Que producto deseas agregar? (Ej: Kefir, Miel, Kombucha, Kefir 5, Kefir x5)', { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+        const bulkItems = parseBulkOrder(ctx.body ?? '')
+        if (bulkItems && bulkItems.length) {
+            const cart = state.get('cart') || []
+            cart.push(...bulkItems)
+            state.update({ cart, pendingProduct: null })
+            const resumen = bulkItems.map((item) => `• ${item.quantity} ${item.product}`).join('\n')
+            await flowDynamic(`Agregado al carrito:\n${resumen}`)
+            return gotoFlow(addMoreFlow)
         }
-        await flowDynamic('Escribe "Si" o "No" para continuar.')
+
+        const product = parseProduct(ctx.body ?? '')
+        if (!product) {
+            await flowDynamic('No identifique el producto. Escribe: Kombucha, Kefir, Vinagres, Miel, Cafe, Sabila o Carne de Cordero.')
+            return gotoFlow(addProductFlow)
+        }
+        state.update({ pendingProduct: product })
+        return gotoFlow(addQuantityFlow)
+    })
+
+const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
+    .addAnswer('Cuantas unidades quieres? (solo numero)', { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+        const quantity = parseQuantity(ctx.body ?? '')
+        if (!quantity) {
+            await flowDynamic('Cantidad invalida. Escribe solo un numero, por ejemplo: 2')
+            return gotoFlow(addQuantityFlow)
+        }
+        const product = state.get('pendingProduct')
+        const cart = state.get('cart') || []
+        if (product) cart.push({ product, quantity })
+        state.update({ cart, pendingProduct: null })
+        await flowDynamic(`Agregado: ${quantity} ${product}.`)
+        return gotoFlow(addMoreFlow)
+    })
+
+const addMoreFlow = addKeyword<Provider, Database>(['__add_more__'])
+    .addAnswer('Quieres agregar otro producto? Responde "Si" o "No".', {
+        capture: true,
+        buttons: [{ body: 'Si' }, { body: 'No' }],
+    }, async (ctx, { gotoFlow, flowDynamic }) => {
+        const text = normalizeText(ctx.body)
+        if (isYes(text)) return gotoFlow(addProductFlow)
+        if (isNo(text)) return gotoFlow(datosEntregaFlow)
+        await flowDynamic('Responde "Si" o "No" para continuar.')
+        return gotoFlow(addMoreFlow)
+    })
+
+const datosEntregaFlow = addKeyword<Provider, Database>(['__datos_entrega__'])
+    .addAnswer('Perfecto. Ahora necesito tus datos para la entrega en la zona de Tula y alrededores.', null, async (_ctx, { state, flowDynamic }) => {
+        const cart = state.get('cart') || []
+        if (cart.length) {
+            const resumen = cart.map((item) => `• ${item.quantity} ${item.product}`).join('\n')
+            await flowDynamic(`Resumen del pedido:\n${resumen}`)
+        }
     })
     .addAnswer('Nombre completo:', { capture: true }, async (ctx, { state }) => {
         const nombre = (ctx.body ?? '').trim()
@@ -308,7 +398,7 @@ O escribe "Hacer pedido" si ya deseas comprar.
             { body: '🏠 Menu principal' },
         ],
     }, async (ctx, { gotoFlow, flowDynamic }) => {
-        const text = (ctx.body ?? '').toLowerCase().trim()
+        const text = normalizeText(ctx.body)
         if (text.includes('pedido') || text.includes('comprar')) return gotoFlow(pedidoFlow)
         if (text.startsWith('1') || text.includes('kombucha')) return gotoFlow(kombuchaFaqFlow)
         if (text.startsWith('2') || text.includes('kefir') || text.includes('kéfir')) return gotoFlow(kefirFaqFlow)
@@ -339,7 +429,7 @@ const welcomeFlow = addKeyword<Provider, Database>([
     'menu',
     'inicio',
 ]).addAnswer(MAIN_MENU_MESSAGE, { capture: true, buttons: MAIN_MENU_BUTTONS }, async (ctx, { gotoFlow, flowDynamic }) => {
-    const text = (ctx.body ?? '').toLowerCase().trim()
+    const text = normalizeText(ctx.body)
     if (text.startsWith('1') || text.includes('kombucha')) return gotoFlow(kombuchaFlow)
     if (text.startsWith('2') || text.includes('kéfir') || text.includes('kefir')) return gotoFlow(kefirFlow)
     if (text.startsWith('3') || text.includes('vinagre')) return gotoFlow(vinagreFlow)
@@ -353,7 +443,7 @@ const welcomeFlow = addKeyword<Provider, Database>([
 })
 
 const handleActionMenu = async (ctx, { gotoFlow, flowDynamic }) => {
-    const text = ctx.body.toLowerCase().trim()
+    const text = normalizeText(ctx.body)
     if (text.startsWith('1') || text.includes('pedido')) return gotoFlow(pedidoFlow)
     if (text.startsWith('2') || text.includes('duda') || text.includes('pregunta') || text.includes('consulta')) return gotoFlow(dudaFlow)
     if (text.startsWith('3') || text.includes('menú') || text.includes('menu') || text.includes('inicio')) return gotoFlow(welcomeFlow)
@@ -465,7 +555,7 @@ Selecciona un corte:
             { body: '🏠 Menú principal' },
         ],
     }, async (ctx, { gotoFlow, flowDynamic }) => {
-        const text = ctx.body.toLowerCase().trim()
+        const text = normalizeText(ctx.body)
         if (text.startsWith('1') || text.includes('rack francés') || text.includes('rack frances')) return gotoFlow(rackFrancesFlow)
         if (text.startsWith('2') || text.includes('rack chops')) return gotoFlow(rackChopsFlow)
         if (text.startsWith('3') || text.includes('t-bone') || text.includes('tbone')) return gotoFlow(tboneFlow)
@@ -559,7 +649,7 @@ https://maps.app.goo.gl/e2SGQNkZDPid6CWG6
             { body: '🏠 Menú principal' },
         ],
     }, async (ctx, { gotoFlow, flowDynamic }) => {
-        const text = ctx.body.toLowerCase().trim()
+        const text = normalizeText(ctx.body)
         if (text.includes('hablar')) return gotoFlow(contactFlow)
         if (text.includes('menú') || text.includes('menu') || text.includes('inicio')) return gotoFlow(welcomeFlow)
         await flowDynamic('Escribe "Hablar con nosotros" o "Menú principal" para continuar.')
@@ -594,6 +684,10 @@ const main = async () => {
         gaonerasFlow,
         ubicacionFlow,
         pedidoFlow,
+        addProductFlow,
+        addQuantityFlow,
+        addMoreFlow,
+        datosEntregaFlow,
         dudaFlow,
         contactFlow,
     ])
