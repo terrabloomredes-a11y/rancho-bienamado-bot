@@ -242,10 +242,43 @@ const carneFaqFlow = addKeyword<Provider, Database>(['duda carne', 'duda cordero
 
 const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar'])
     .addAnswer(`
-Gracias por tu pedido. En un momento el admin o el dueño te contacta para terminarlo.
+Gracias por tu pedido.
 
-Si quieres adelantar información, escribe tu nombre, producto y cantidad.
-`)
+Para avanzar mas rapido, escribe:
+• Producto(s)
+• Cantidad
+`, { capture: true }, async (ctx, { state, flowDynamic }) => {
+        const pedido = (ctx.body ?? '').trim()
+        if (pedido) state.update({ pedido })
+        await flowDynamic('Quieres agregar algo mas? Responde "Si" o "No".')
+    })
+    .addAnswer('Quieres agregar algo mas? Responde "Si" o "No".', { capture: true }, async (ctx, { gotoFlow, flowDynamic, state }) => {
+        const text = (ctx.body ?? '').toLowerCase().trim()
+        if (text.startsWith('s') || text.includes('si')) return gotoFlow(welcomeFlow)
+        if (text.startsWith('n') || text.includes('no')) {
+            state.update({ pedidoConfirmado: true })
+            await flowDynamic('Perfecto. Ahora necesito tus datos para la entrega en la zona de Tula y alrededores.')
+            return
+        }
+        await flowDynamic('Escribe "Si" o "No" para continuar.')
+    })
+    .addAnswer('Nombre completo:', { capture: true }, async (ctx, { state }) => {
+        const nombre = (ctx.body ?? '').trim()
+        if (nombre) state.update({ nombre })
+    })
+    .addAnswer('Telefono de contacto:', { capture: true }, async (ctx, { state }) => {
+        const telefono = (ctx.body ?? '').trim()
+        if (telefono) state.update({ telefono })
+    })
+    .addAnswer('Colonia o localidad (Tula, Tlahuelilpan, El Carmen, Doxey, Iturbe, El Llano, etc.):', { capture: true }, async (ctx, { state }) => {
+        const colonia = (ctx.body ?? '').trim()
+        if (colonia) state.update({ colonia })
+    })
+    .addAnswer('Direccion completa y referencias:', { capture: true }, async (ctx, { state, flowDynamic }) => {
+        const direccion = (ctx.body ?? '').trim()
+        if (direccion) state.update({ direccion })
+        await flowDynamic('Gracias. En un momento te contactamos para confirmar tu pedido y la entrega.')
+    })
 
 const dudaFlow = addKeyword<Provider, Database>(['duda', 'pregunta', 'consulta'])
     .addAnswer(`
