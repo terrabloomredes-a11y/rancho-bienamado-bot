@@ -77,33 +77,58 @@ const PRODUCT_OPTIONS = [
     { label: 'Carne de Cordero Premium', keywords: ['carne', 'cordero', '7'] },
 ]
 
+const ORDER_ITEMS = [
+    { label: 'Kombucha 250 ml', keywords: ['kombucha', '1'] },
+    { label: 'Kefir Bebible 250 ml', keywords: ['kefir bebible', 'kefir', 'kéfir', '2'] },
+    { label: 'Kefir Untable 250 g', keywords: ['kefir untable', 'kéfir untable', '3'] },
+    { label: 'Vinagre Manzana 500 ml', keywords: ['vinagre manzana', 'manzana', '4'] },
+    { label: 'Vinagre Pera 500 ml', keywords: ['vinagre pera', 'pera', '5'] },
+    { label: 'Vinagre Albahaca 500 ml', keywords: ['vinagre albahaca', 'albahaca', '6'] },
+    { label: 'Miel Natural 350 g', keywords: ['miel', '7'] },
+    { label: 'Cafe Artesanal', keywords: ['cafe', 'café', '8'] },
+    { label: 'Carne - Rack Frances (kg)', keywords: ['rack frances', 'rack francés', '9'] },
+    { label: 'Carne - Rack Chops (kg)', keywords: ['rack chops', '10'] },
+    { label: 'Carne - T-Bone (kg)', keywords: ['t-bone', 'tbone', '11'] },
+    { label: 'Carne - Osobuco (kg)', keywords: ['osobuco', '12'] },
+    { label: 'Carne - Medallon de Pierna (kg)', keywords: ['medallon', 'medallón', '13'] },
+    { label: 'Carne - Pierna en Cubos (kg)', keywords: ['pierna en cubos', 'pierna cubos', '14'] },
+    { label: 'Carne - Hamburguesa de Cordero (500 g)', keywords: ['hamburguesa', '15'] },
+    { label: 'Carne - Chorizo de Cordero (kg)', keywords: ['chorizo', '16'] },
+    { label: 'Carne - Gaoneras (500 g)', keywords: ['gaoneras', 'gaonera', '17'] },
+]
+
 const ORDER_MENU_MESSAGE = `
 Agrega productos a tu pedido:
 
-1️⃣ Kombucha
-2️⃣ Kefir
-3️⃣ Vinagres Artesanales
-4️⃣ Miel Natural
-5️⃣ Cafe Artesanal
-6️⃣ Sabila
-7️⃣ Carne de Cordero Premium
-8️⃣ Terminar pedido
+1️⃣ Kombucha 250 ml
+2️⃣ Kefir Bebible 250 ml
+3️⃣ Kefir Untable 250 g
+4️⃣ Vinagre Manzana 500 ml
+5️⃣ Vinagre Pera 500 ml
+6️⃣ Vinagre Albahaca 500 ml
+7️⃣ Miel Natural 350 g
+8️⃣ Cafe Artesanal
+9️⃣ Carne - Rack Frances (kg)
+10️⃣ Carne - Rack Chops (kg)
+11️⃣ Carne - T-Bone (kg)
+12️⃣ Carne - Osobuco (kg)
+13️⃣ Carne - Medallon de Pierna (kg)
+14️⃣ Carne - Pierna en Cubos (kg)
+15️⃣ Carne - Hamburguesa de Cordero (500 g)
+16️⃣ Carne - Chorizo de Cordero (kg)
+17️⃣ Carne - Gaoneras (500 g)
+18️⃣ Terminar pedido
 `
-
-const ORDER_MENU_BUTTONS = [
-    { body: '1️⃣ Kombucha' },
-    { body: '2️⃣ Kefir' },
-    { body: '3️⃣ Vinagres Artesanales' },
-    { body: '4️⃣ Miel Natural' },
-    { body: '5️⃣ Cafe Artesanal' },
-    { body: '6️⃣ Sabila' },
-    { body: '7️⃣ Carne de Cordero Premium' },
-    { body: '8️⃣ Terminar pedido' },
-]
 
 const parseProduct = (text: string) => {
     const normalized = normalizeText(text)
     const match = PRODUCT_OPTIONS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
+    return match?.label ?? null
+}
+
+const parseOrderProduct = (text: string) => {
+    const normalized = normalizeText(text)
+    const match = ORDER_ITEMS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
     return match?.label ?? null
 }
 
@@ -299,15 +324,16 @@ Gracias por tu pedido.
 Vamos a agregar productos a tu carrito.
 `, null, async (_ctx, { state, gotoFlow }) => {
         const lastProduct = state.get('lastProduct')
-        state.update({ cart: [], pendingProduct: lastProduct ?? null })
-        if (lastProduct) return gotoFlow(addQuantityFlow)
+        const orderable = ORDER_ITEMS.find((item) => item.label === lastProduct)?.label
+        state.update({ cart: [], pendingProduct: orderable ?? null })
+        if (orderable) return gotoFlow(addQuantityFlow)
         return gotoFlow(addProductFlow)
     })
 
 const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
-    .addAnswer(ORDER_MENU_MESSAGE, { capture: true, buttons: ORDER_MENU_BUTTONS }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+    .addAnswer(ORDER_MENU_MESSAGE, { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const text = normalizeText(ctx.body)
-        if (text.startsWith('8') || text.includes('terminar') || text.includes('finalizar') || text.includes('listo')) {
+        if (text.startsWith('18') || text.includes('terminar') || text.includes('finalizar') || text.includes('listo')) {
             const cart = state.get('cart') || []
             if (!cart.length) {
                 await flowDynamic('Tu pedido esta vacio. Agrega al menos un producto para continuar.')
@@ -316,9 +342,9 @@ const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
             return gotoFlow(datosEntregaFlow)
         }
 
-        const product = parseProduct(ctx.body ?? '')
+        const product = parseOrderProduct(ctx.body ?? '')
         if (!product) {
-            await flowDynamic('No identifique el producto. Elige una opcion del 1 al 8.')
+            await flowDynamic('No identifique el producto. Elige una opcion del 1 al 18.')
             return gotoFlow(addProductFlow)
         }
         state.update({ pendingProduct: product })
