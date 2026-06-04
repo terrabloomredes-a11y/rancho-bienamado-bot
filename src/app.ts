@@ -323,6 +323,12 @@ Gracias por tu pedido.
 
 Vamos a agregar productos a tu carrito.
 `, null, async (_ctx, { state, gotoFlow }) => {
+        const existingCart = state.get('cart') || []
+        if (existingCart.length) {
+            state.update({ pendingProduct: null })
+            return gotoFlow(addProductFlow)
+        }
+
         const lastProduct = state.get('lastProduct')
         const orderable = ORDER_ITEMS.find((item) => item.label === lastProduct)?.label
         state.update({ cart: [], pendingProduct: orderable ?? null })
