@@ -5,6 +5,7 @@ import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 const PORT = process.env.PORT ?? 3008
 const CONTACT_NUMBER = '527721603207'
 const CONTACT_LINK = `https://wa.me/${CONTACT_NUMBER}`
+const LIST_BUTTON_TEXT = 'Ver opciones'
 
 const MAIN_MENU_MESSAGE = `
 ✨ Bienvenido a Rancho El Bienamado ✨
@@ -53,6 +54,8 @@ const ACTION_MENU_BUTTONS = [
     { body: '2️⃣ Duda' },
     { body: '3️⃣ Menú principal' },
 ]
+
+
 
 const FAQ_TOPICS = [
     { key: '1', label: 'Beneficios' },
@@ -120,6 +123,68 @@ Agrega productos a tu pedido:
 18️⃣ Terminar pedido
 `
 
+const MAIN_MENU_LIST_SECTIONS = [
+    {
+        title: 'Productos',
+        rows: [
+            { title: '1️⃣ Kombucha', rowId: 'menu_1' },
+            { title: '2️⃣ Kéfir', rowId: 'menu_2' },
+            { title: '3️⃣ Vinagres Artesanales', rowId: 'menu_3' },
+            { title: '4️⃣ Miel Natural', rowId: 'menu_4' },
+            { title: '5️⃣ Café Artesanal', rowId: 'menu_5' },
+            { title: '6️⃣ Sábila', rowId: 'menu_6' },
+            { title: '7️⃣ Carne de Cordero Premium', rowId: 'menu_7' },
+        ],
+    },
+    {
+        title: 'Opciones',
+        rows: [
+            { title: '8️⃣ Ubicación', rowId: 'menu_8' },
+            { title: '9️⃣ Hablar con nosotros', rowId: 'menu_9' },
+        ],
+    },
+]
+
+const ORDER_MENU_LIST_SECTIONS = [
+    {
+        title: 'Productos',
+        rows: ORDER_ITEMS.map((item, index) => ({
+            title: `${index + 1}️⃣ ${item.label}`,
+            rowId: `order_${index + 1}`,
+        })),
+    },
+    {
+        title: 'Pedido',
+        rows: [{ title: '18️⃣ Terminar pedido', rowId: 'order_finish' }],
+    },
+    {
+        title: 'Ayuda',
+        rows: [
+            { title: '🏠 Menú principal', rowId: 'order_menu' },
+            { title: '💬 Hablar con nosotros', rowId: 'order_contact' },
+        ],
+    },
+]
+
+const sendListMessage = async (ctx, provider, config: {
+    title: string
+    text: string
+    footer?: string
+    buttonText?: string
+    sections: Array<{ title: string; rows: Array<{ title: string; rowId: string }> }>
+}) => {
+    const vendor = provider?.vendor
+    if (!vendor?.sendMessage) return
+
+    await vendor.sendMessage(ctx.from, {
+        title: config.title,
+        text: config.text,
+        footer: config.footer ?? '',
+        buttonText: config.buttonText ?? LIST_BUTTON_TEXT,
+        sections: config.sections,
+    })
+}
+
 const parseProduct = (text: string) => {
     const normalized = normalizeText(text)
     const match = PRODUCT_OPTIONS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
@@ -128,6 +193,14 @@ const parseProduct = (text: string) => {
 
 const parseOrderProduct = (text: string) => {
     const normalized = normalizeText(text)
+    const numberMatch = normalized.match(/\d+/)
+    if (numberMatch) {
+        const index = Number(numberMatch[0])
+        if (Number.isFinite(index) && index >= 1 && index <= ORDER_ITEMS.length) {
+            return ORDER_ITEMS[index - 1].label
+        }
+    }
+
     const match = ORDER_ITEMS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
     return match?.label ?? null
 }
@@ -159,6 +232,75 @@ const buildFaqButtons = () => [
     { body: '🧾 Hacer pedido' },
     { body: '🏠 Menu principal' },
 ]
+
+const sendListMessage = async (provider: Provider, to: string, listPayload: Record<string, any>) => {
+    const vendor = (provider as any)?.vendor
+    if (!vendor?.sendMessage) return false
+    await vendor.sendMessage(to, listPayload)
+    return true
+}
+
+const buildMainMenuList = () => ({
+    text: 'Selecciona una opcion:',
+    footer: 'Rancho El Bienamado',
+    title: 'Menu principal',
+    buttonText: LIST_BUTTON_TEXT,
+    sections: [
+        {
+            title: 'Opciones',
+            rows: [
+                { title: '1️⃣ Kombucha', rowId: 'menu_1' },
+                { title: '2️⃣ Kéfir', rowId: 'menu_2' },
+                { title: '3️⃣ Vinagres Artesanales', rowId: 'menu_3' },
+                { title: '4️⃣ Miel Natural', rowId: 'menu_4' },
+                { title: '5️⃣ Café Artesanal', rowId: 'menu_5' },
+                { title: '6️⃣ Sábila', rowId: 'menu_6' },
+                { title: '7️⃣ Carne de Cordero Premium', rowId: 'menu_7' },
+                { title: '8️⃣ Ubicación', rowId: 'menu_8' },
+                { title: '9️⃣ Hablar con Nosotros', rowId: 'menu_9' },
+            ],
+        },
+    ],
+})
+
+const buildOrderMenuList = () => ({
+    text: 'Agrega productos a tu pedido:',
+    footer: 'Rancho El Bienamado',
+    title: 'Menu de pedido',
+    buttonText: LIST_BUTTON_TEXT,
+    sections: [
+        {
+            title: 'Productos',
+            rows: [
+                { title: '1️⃣ Kombucha 250 ml', rowId: 'order_1' },
+                { title: '2️⃣ Kefir Bebible 250 ml', rowId: 'order_2' },
+                { title: '3️⃣ Kefir Untable 250 g', rowId: 'order_3' },
+                { title: '4️⃣ Vinagre Manzana 500 ml', rowId: 'order_4' },
+                { title: '5️⃣ Vinagre Pera 500 ml', rowId: 'order_5' },
+                { title: '6️⃣ Vinagre Albahaca 500 ml', rowId: 'order_6' },
+                { title: '7️⃣ Miel Natural 350 g', rowId: 'order_7' },
+                { title: '8️⃣ Cafe Artesanal', rowId: 'order_8' },
+                { title: '9️⃣ Carne - Rack Frances (kg)', rowId: 'order_9' },
+                { title: '10️⃣ Carne - Rack Chops (kg)', rowId: 'order_10' },
+                { title: '11️⃣ Carne - T-Bone (kg)', rowId: 'order_11' },
+                { title: '12️⃣ Carne - Osobuco (kg)', rowId: 'order_12' },
+                { title: '13️⃣ Carne - Medallon de Pierna (kg)', rowId: 'order_13' },
+                { title: '14️⃣ Carne - Pierna en Cubos (kg)', rowId: 'order_14' },
+                { title: '15️⃣ Carne - Hamburguesa de Cordero (500 g)', rowId: 'order_15' },
+                { title: '16️⃣ Carne - Chorizo de Cordero (kg)', rowId: 'order_16' },
+                { title: '17️⃣ Carne - Gaoneras (500 g)', rowId: 'order_17' },
+                { title: '18️⃣ Terminar pedido', rowId: 'order_18' },
+            ],
+        },
+        {
+            title: 'Ayuda',
+            rows: [
+                { title: '🏠 Menú principal', rowId: 'order_menu' },
+                { title: '💬 Hablar con nosotros', rowId: 'order_contact' },
+            ],
+        },
+    ],
+})
 
 const handleFaqMenu = async (ctx, { gotoFlow, flowDynamic, state }) => {
     const text = normalizeText(ctx.body)
@@ -337,15 +479,23 @@ Vamos a agregar productos a tu carrito.
     })
 
 const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
+    .addAction(async (ctx, { provider }) => {
+        await sendListMessage(ctx, provider, {
+            title: 'Pedido',
+            text: 'Agrega productos a tu pedido:',
+            sections: ORDER_MENU_LIST_SECTIONS,
+        })
+    })
     .addAnswer(ORDER_MENU_MESSAGE, { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const text = normalizeText(ctx.body)
-        if (text.startsWith('18') || text.includes('terminar') || text.includes('finalizar') || text.includes('listo')) {
-            const cart = state.get('cart') || []
-            if (!cart.length) {
-                await flowDynamic('Tu pedido esta vacio. Agrega al menos un producto para continuar.')
-                return gotoFlow(addProductFlow)
-            }
-            return gotoFlow(datosEntregaFlow)
+        const numberMatch = text.match(/\d+/)
+        const menuNumber = numberMatch ? Number(numberMatch[0]) : null
+
+        if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+        if (text.includes('hablar') || text.includes('asesor') || text.includes('contacto')) return gotoFlow(contactFlow)
+
+        if (menuNumber === 18 || text.includes('terminar') || text.includes('finalizar') || text.includes('listo')) {
+            return gotoFlow(confirmFinishOrderFlow)
         }
 
         const product = parseOrderProduct(ctx.body ?? '')
@@ -357,8 +507,32 @@ const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
         return gotoFlow(addQuantityFlow)
     })
 
+const confirmFinishOrderFlow = addKeyword<Provider, Database>(['__confirm_finish_order__'])
+    .addAnswer('Quieres terminar tu pedido y continuar con el registro? (Si/No)', {
+        capture: true,
+        buttons: [{ body: 'Si' }, { body: 'No' }, { body: '💬 Hablar con nosotros' }],
+    }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+        const cart = state.get('cart') || []
+        if (!cart.length) {
+            await flowDynamic('Tu pedido esta vacio. Agrega al menos un producto para continuar.')
+            return gotoFlow(addProductFlow)
+        }
+
+        const text = normalizeText(ctx.body)
+        if (text.includes('hablar') || text.includes('asesor') || text.includes('contacto')) return gotoFlow(contactFlow)
+        if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+        if (isYes(text)) return gotoFlow(datosEntregaFlow)
+        if (isNo(text)) return gotoFlow(addProductFlow)
+        await flowDynamic('Responde "Si" o "No" para continuar.')
+        return gotoFlow(confirmFinishOrderFlow)
+    })
+
 const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
     .addAnswer('Cuantas unidades quieres? (solo numero)', { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
+        const text = normalizeText(ctx.body)
+        if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+        if (text.includes('hablar') || text.includes('asesor') || text.includes('contacto')) return gotoFlow(contactFlow)
+
         const quantity = parseQuantity(ctx.body ?? '')
         if (!quantity) {
             await flowDynamic('Cantidad invalida. Escribe solo un numero, por ejemplo: 2')
@@ -376,9 +550,11 @@ const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
 const addMoreFlow = addKeyword<Provider, Database>(['__add_more__'])
     .addAnswer('Quieres agregar otro producto? Responde "Si" o "No".', {
         capture: true,
-        buttons: [{ body: 'Si' }, { body: 'No' }],
+        buttons: [{ body: 'Si' }, { body: 'No' }, { body: '🏠 Menú principal' }],
     }, async (ctx, { gotoFlow, flowDynamic }) => {
         const text = normalizeText(ctx.body)
+        if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
+        if (text.includes('hablar') || text.includes('asesor') || text.includes('contacto')) return gotoFlow(contactFlow)
         if (isYes(text)) return gotoFlow(addProductFlow)
         if (isNo(text)) return gotoFlow(datosEntregaFlow)
         await flowDynamic('Responde "Si" o "No" para continuar.')
@@ -455,9 +631,22 @@ const contactFlow = addKeyword<Provider, Database>([
     'contacto',
     'asesor',
     'hablar con nosotros',
-]).addAnswer(`
-Gracias por escribirnos. En un momento te atendemos con gusto.
-`)
+]).addAnswer(
+    `
+📞 En un momento uno de nuestros asesores te atenderá.
+
+También puedes escribirnos directamente aquí:
+${CONTACT_LINK}
+`
+)
+.addAnswer(
+    ACTION_MENU_MESSAGE,
+    {
+        capture: true,
+        buttons: ACTION_MENU_BUTTONS,
+    },
+    handleActionMenu
+)
 
 const welcomeFlow = addKeyword<Provider, Database>([
     'hola',
@@ -467,7 +656,15 @@ const welcomeFlow = addKeyword<Provider, Database>([
     'menú',
     'menu',
     'inicio',
-]).addAnswer(MAIN_MENU_MESSAGE, { capture: true, buttons: MAIN_MENU_BUTTONS }, async (ctx, { gotoFlow, flowDynamic }) => {
+])
+    .addAction(async (ctx, { provider }) => {
+        await sendListMessage(ctx, provider, {
+            title: 'Menú principal',
+            text: 'Selecciona una opcion:',
+            sections: MAIN_MENU_LIST_SECTIONS,
+        })
+    })
+    .addAnswer(MAIN_MENU_MESSAGE, { capture: true }, async (ctx, { gotoFlow, flowDynamic }) => {
     const text = normalizeText(ctx.body)
     if (text.startsWith('1') || text.includes('kombucha')) return gotoFlow(kombuchaFlow)
     if (text.startsWith('2') || text.includes('kéfir') || text.includes('kefir')) return gotoFlow(kefirFlow)
@@ -737,6 +934,7 @@ const main = async () => {
         ubicacionFlow,
         pedidoFlow,
         addProductFlow,
+        confirmFinishOrderFlow,
         addQuantityFlow,
         addMoreFlow,
         datosEntregaFlow,
