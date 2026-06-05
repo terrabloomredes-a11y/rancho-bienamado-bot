@@ -112,15 +112,15 @@ Agrega productos a tu pedido:
 7️⃣ Miel Natural 350 g
 8️⃣ Cafe Artesanal
 9️⃣ Carne - Rack Frances (kg)
-10️⃣ Carne - Rack Chops (kg)
-11️⃣ Carne - T-Bone (kg)
-12️⃣ Carne - Osobuco (kg)
-13️⃣ Carne - Medallon de Pierna (kg)
-14️⃣ Carne - Pierna en Cubos (kg)
-15️⃣ Carne - Hamburguesa de Cordero (500 g)
-16️⃣ Carne - Chorizo de Cordero (kg)
-17️⃣ Carne - Gaoneras (500 g)
-18️⃣ Terminar pedido
+1️⃣0️⃣ Carne - Rack Chops (kg)
+1️⃣1️⃣ Carne - T-Bone (kg)
+1️⃣2️⃣ Carne - Osobuco (kg)
+1️⃣3️⃣ Carne - Medallon de Pierna (kg)
+1️⃣4️⃣ Carne - Pierna en Cubos (kg)
+1️⃣5️⃣ Carne - Hamburguesa de Cordero (500 g)
+1️⃣6️⃣ Carne - Chorizo de Cordero (kg)
+1️⃣7️⃣ Carne - Gaoneras (500 g)
+1️⃣8️⃣ Terminar pedido
 `
 
 const MAIN_MENU_LIST_SECTIONS = [
