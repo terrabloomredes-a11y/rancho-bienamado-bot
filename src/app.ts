@@ -56,6 +56,15 @@ const ACTION_MENU_BUTTONS = [
     { body: '3️⃣ Menú principal' },
 ]
 
+// ✅ FUNCIÓN MOVIDA ARRIBA (AQUÍ ESTABA EL ERROR PRINCIPAL)
+const handleActionMenu = async (ctx, { gotoFlow, flowDynamic }) => {
+    const text = normalizeText(ctx.body)
+    if (text.startsWith('1') || text.includes('pedido')) return gotoFlow(pedidoFlow)
+    if (text.startsWith('2') || text.includes('duda')) return gotoFlow(dudaFlow)
+    if (text.startsWith('3') || text.includes('menú')) return gotoFlow(welcomeFlow)
+    await flowDynamic('Escribe 1, 2 o 3 para continuar.')
+}
+
 const FAQ_TOPICS = [
     { key: '1', label: 'Beneficios' },
     { key: '2', label: 'Precio' },
@@ -588,14 +597,6 @@ https://maps.app.goo.gl/e2SGQNkZDPid6CWG6
     })
 
 // 🔹 FLUJOS DE INFORMACIÓN DE PRODUCTOS
-const handleActionMenu = async (ctx, { gotoFlow, flowDynamic }) => {
-    const text = normalizeText(ctx.body)
-    if (text.startsWith('1') || text.includes('pedido')) return gotoFlow(pedidoFlow)
-    if (text.startsWith('2') || text.includes('duda')) return gotoFlow(dudaFlow)
-    if (text.startsWith('3') || text.includes('menú')) return gotoFlow(welcomeFlow)
-    await flowDynamic('Escribe 1, 2 o 3 para continuar.')
-}
-
 const cafeFlow = addKeyword<Provider, Database>(['cafe', 'café', 'cafe artesanal'])
     .addAnswer(`
 ☕ CAFÉ ARTESANAL
