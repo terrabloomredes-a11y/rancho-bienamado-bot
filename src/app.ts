@@ -56,7 +56,7 @@ const ACTION_MENU_BUTTONS = [
     { body: '3️⃣ Menú principal' },
 ]
 
-// ✅ FUNCIÓN MOVIDA ARRIBA (AQUÍ ESTABA EL ERROR PRINCIPAL)
+// ✅ FUNCIÓN MOVIDA ARRIBA
 const handleActionMenu = async (ctx, { gotoFlow, flowDynamic }) => {
     const text = normalizeText(ctx.body)
     if (text.startsWith('1') || text.includes('pedido')) return gotoFlow(pedidoFlow)
@@ -175,7 +175,7 @@ const ORDER_MENU_LIST_SECTIONS = [
     },
 ]
 
-// 🔹 FUNCIÓN PARA ENVIAR LISTAS (CORREGIDA)
+// 🔹 FUNCIÓN PARA ENVIAR LISTAS
 const sendListMessage = async (provider: Provider, to: string, listPayload: Record<string, any>) => {
     const vendor = (provider as any)?.vendor
     if (!vendor?.sendMessage) return false
@@ -390,14 +390,13 @@ const carneFaqFlow = addKeyword<Provider, Database>(['duda carne', 'duda cordero
         return handleFaqMenu(ctx, tools)
     })
 
-// 🔹 FLUJO PRINCIPAL DE PEDIDO (CORREGIDO Y MEJORADO)
+// 🔹 FLUJO PRINCIPAL DE PEDIDO
 const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar', 'hacer pedido'])
     .addAnswer(`
 🛒 INICIANDO PEDIDO
 
 Vamos a armar tu carrito. Selecciona los productos que deseas:
 `, null, async (_ctx, { state, gotoFlow }) => {
-        // Inicializar carrito si no existe
         const cart = state.get('cart') || []
         state.update({ cart, pendingProduct: null })
         return gotoFlow(addProductFlow)
@@ -405,25 +404,20 @@ Vamos a armar tu carrito. Selecciona los productos que deseas:
 
 const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
     .addAction(async (ctx, { provider }) => {
-        // Mostrar lista visual de productos
         await sendListMessage(provider, ctx.from, buildOrderMenuList())
     })
     .addAnswer(ORDER_MENU_MESSAGE, { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const text = normalizeText(ctx.body)
-
-        // Navegación
         if (text.includes('menu') || text.includes('menú') || text.includes('inicio')) return gotoFlow(welcomeFlow)
         if (text.includes('hablar') || text.includes('asesor')) return gotoFlow(contactFlow)
         if (text.includes('terminar') || text.includes('finalizar') || text === '18') return gotoFlow(confirmFinishOrderFlow)
 
-        // Identificar producto
         const product = parseOrderProduct(ctx.body ?? '')
         if (!product) {
             await flowDynamic('❌ No reconozco ese producto. Por favor elige una opción del 1 al 18.')
             return gotoFlow(addProductFlow)
         }
 
-        // Guardar producto temporalmente y pedir cantidad
         state.update({ pendingProduct: product })
         return gotoFlow(addQuantityFlow)
     })
@@ -431,7 +425,6 @@ const addProductFlow = addKeyword<Provider, Database>(['__add_product__'])
 const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
     .addAnswer('🔢 ¿Cuántas unidades deseas? (Escribe solo el número, ej: 2)', { capture: true }, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const quantity = parseQuantity(ctx.body ?? '')
-
         if (!quantity) {
             await flowDynamic('⚠️ Cantidad inválida. Escribe solo un número mayor a 0.')
             return gotoFlow(addQuantityFlow)
@@ -440,7 +433,6 @@ const addQuantityFlow = addKeyword<Provider, Database>(['__add_quantity__'])
         const product = state.get('pendingProduct')
         if (!product) return gotoFlow(addProductFlow)
 
-        // Agregar al carrito (LÓGICA CORREGIDA)
         const cart = state.get('cart') || []
         cart.push({ producto: product, cantidad: quantity })
         state.update({ cart, pendingProduct: null })
@@ -455,11 +447,9 @@ const addMoreFlow = addKeyword<Provider, Database>(['__add_more__'])
         buttons: [{ body: '✅ Sí, agregar más' }, { body: '❌ No, terminar pedido' }, { body: '🏠 Menú principal' }],
     }, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const text = normalizeText(ctx.body)
-
         if (text.includes('menu')) return gotoFlow(welcomeFlow)
         if (isYes(text) || text.includes('agregar')) return gotoFlow(addProductFlow)
         if (isNo(text) || text.includes('terminar')) return gotoFlow(confirmFinishOrderFlow)
-
         await flowDynamic('Por favor responde con *Sí* o *No*.')
         return gotoFlow(addMoreFlow)
     })
@@ -467,13 +457,11 @@ const addMoreFlow = addKeyword<Provider, Database>(['__add_more__'])
 const confirmFinishOrderFlow = addKeyword<Provider, Database>(['__confirm_finish_order__'])
     .addAnswer('📋 RESUMEN DE TU PEDIDO:', null, async (ctx, { state, flowDynamic, gotoFlow }) => {
         const cart = state.get('cart') || []
-
         if (cart.length === 0) {
             await flowDynamic('❌ Tu carrito está vacío. Agrega al menos un producto.')
             return gotoFlow(addProductFlow)
         }
 
-        // Mostrar resumen claro
         let resumen = ''
         cart.forEach((item, i) => {
             resumen += `${i+1}. ${item.cantidad} ${item.producto}\n`
@@ -506,7 +494,6 @@ const datosEntregaFlow = addKeyword<Provider, Database>(['__datos_entrega__'])
     .addAnswer('4️⃣ Dirección completa y referencias (calle, número, entre calles):', { capture: true }, async (ctx, { state, flowDynamic }) => {
         state.update({ direccion: ctx.body.trim() })
 
-        // Confirmación final
         const datos = state.get()
         const resumenPedido = (datos.cart || []).map(i => `• ${i.cantidad} ${i.producto}`).join('\n')
 
@@ -798,11 +785,13 @@ Cortes delgados y amplios, ideales para rellenar o asar rápido.
 `, { media: './assets/catalogoimagenes/gaoneras.jpg.png' })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
-// 🔹 FLUJO DE BIENVENIDA (PRINCIPAL)
-// ✅ CORREGIDO: AGREGADAS MÁS PALABRAS CLAVE Y DETECCIÓN MEJORADA
-const welcomeFlow = addKeyword<Provider, Database>(['hola', 'buenas', 'info', 'informacion', 'menú', 'menu', 'inicio', 'entrada', 'ola', 'holi', 'holaa'])
+// ✅ FLUJO DE BIENVENIDA - PALABRAS CLAVE AQUÍ (LÍNEA 590)
+const welcomeFlow = addKeyword<Provider, Database>([
+    'hola', 'holas', 'ola', 'holi', 'holaa', 'holaaa', 
+    'buenas', 'buenos dias', 'buenas tardes', 'buenas noches',
+    'menu', 'menú', 'inicio', 'empezar', 'entrar', 'info', 'informacion'
+])
     .addAction(async (ctx, { provider }) => {
-        // Enviar menú visual
         await sendListMessage(provider, ctx.from, buildMainMenuList())
     })
     .addAnswer(MAIN_MENU_MESSAGE, { capture: true }, async (ctx, { gotoFlow, flowDynamic }) => {
@@ -819,7 +808,7 @@ const welcomeFlow = addKeyword<Provider, Database>(['hola', 'buenas', 'info', 'i
         await flowDynamic('⚠️ Opción no válida. Escribe un número del 1 al 9.')
     })
 
-// 🔹 INICIALIZACIÓN DEL BOT (CORREGIDO PARA RENDER)
+// ✅ CONFIGURACIÓN ESPECIAL PARA RENDER (LO QUE FALTABA)
 const main = async () => {
     const adapterFlow = createFlow([
         welcomeFlow,
@@ -858,11 +847,11 @@ const main = async () => {
         contactFlow,
     ])
 
-    // ✅ CONFIGURACIÓN ESPECIAL PARA RENDER (GUARDA SESIÓN)
+    // ✅ ARREGLO CLAVE: SESIÓN EN MEMORIA PARA RENDER
     const adapterProvider = createProvider(Provider, { 
         version: [2, 3000, 1035824857],
         session: { 
-            path: './session',
+            path: '/tmp/session', // ✅ RUTA PERMITIDA EN RENDER
             read: true,
             write: true
         }
