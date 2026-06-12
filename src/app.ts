@@ -799,7 +799,8 @@ Cortes delgados y amplios, ideales para rellenar o asar rápido.
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
 // 🔹 FLUJO DE BIENVENIDA (PRINCIPAL)
-const welcomeFlow = addKeyword<Provider, Database>(['hola', 'buenas', 'info', 'informacion', 'menú', 'menu', 'inicio', 'entrada'])
+// ✅ CORREGIDO: AGREGADAS MÁS PALABRAS CLAVE Y DETECCIÓN MEJORADA
+const welcomeFlow = addKeyword<Provider, Database>(['hola', 'buenas', 'info', 'informacion', 'menú', 'menu', 'inicio', 'entrada', 'ola', 'holi', 'holaa'])
     .addAction(async (ctx, { provider }) => {
         // Enviar menú visual
         await sendListMessage(provider, ctx.from, buildMainMenuList())
@@ -818,7 +819,7 @@ const welcomeFlow = addKeyword<Provider, Database>(['hola', 'buenas', 'info', 'i
         await flowDynamic('⚠️ Opción no válida. Escribe un número del 1 al 9.')
     })
 
-// 🔹 INICIALIZACIÓN DEL BOT
+// 🔹 INICIALIZACIÓN DEL BOT (CORREGIDO PARA RENDER)
 const main = async () => {
     const adapterFlow = createFlow([
         welcomeFlow,
@@ -857,7 +858,15 @@ const main = async () => {
         contactFlow,
     ])
 
-    const adapterProvider = createProvider(Provider, { version: [2, 3000, 1035824857] })
+    // ✅ CONFIGURACIÓN ESPECIAL PARA RENDER (GUARDA SESIÓN)
+    const adapterProvider = createProvider(Provider, { 
+        version: [2, 3000, 1035824857],
+        session: { 
+            path: './session',
+            read: true,
+            write: true
+        }
+    })
     const adapterDB = new Database()
 
     const { httpServer } = await createBot({
