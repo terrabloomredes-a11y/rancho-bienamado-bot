@@ -1,6 +1,6 @@
 // ✅ IMPORTACIÓN CORRECTA DE LA BASE DE DATOS (COMO ME PEDISTE)
 import { createBot, createProvider, createFlow, addKeyword } from '@builderbot/bot'
-import { MemoryDB as Database } from '@builderbot/database-memory' // <--- AQUÍ ESTÁ LO QUE PEDISTE
+import { MemoryDB as Database } from '@builderbot/database-memory'// <--- AQUÍ ESTÁ LO QUE PEDISTE
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 
 const PORT = process.env.PORT ?? 3008
