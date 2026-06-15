@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "main": "dist/app.js",
   "scripts": {
-    "build": "npx tsc",
-    "start": "node ./dist/app.js"
+    "build": "npx rollup -c",
+    "start": "node ./dist/app.js",
+    "dev": "node ./dist/app.js"
   },
-"dependencies": {
-  "@builderbot/bot": "1.2.5",
-  "@builderbot/provider-baileys": "1.2.5",
-  "@builderbot/database-memory": "1.2.5"
-}
+  "dependencies": {
+    "@builderbot/bot": "1.2.5",
+ 
+  }
 }
