@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "main": "dist/app.js",
   "scripts": {
-    "build": "npx rollup -c",
-    "start": "node ./dist/app.js",
-    "dev": "node ./dist/app.js"
+    "build": "npx tsc",
+    "start": "node ./dist/app.js"
   },
   "dependencies": {
     "@builderbot/bot": "1.2.5",

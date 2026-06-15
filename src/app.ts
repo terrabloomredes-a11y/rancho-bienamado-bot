@@ -1,5 +1,6 @@
+// ✅ IMPORTACIÓN CORRECTA DE LA BASE DE DATOS (COMO ME PEDISTE)
 import { createBot, createProvider, createFlow, addKeyword } from '@builderbot/bot'
-import { MemoryDB as Database } from '@builderbot/bot'
+import { MemoryDB as Database } from '@builderbot/database-memory' // <--- AQUÍ ESTÁ LO QUE PEDISTE
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
 
 const PORT = process.env.PORT ?? 3008
@@ -56,7 +57,6 @@ const ACTION_MENU_BUTTONS = [
     { body: '3️⃣ Menú principal' },
 ]
 
-// ✅ FUNCIÓN MOVIDA ARRIBA
 const handleActionMenu = async (ctx, { gotoFlow, flowDynamic }) => {
     const text = normalizeText(ctx.body)
     if (text.startsWith('1') || text.includes('pedido')) return gotoFlow(pedidoFlow)
@@ -134,7 +134,6 @@ const ORDER_MENU_MESSAGE = `
 Escribe el número o nombre del producto que deseas agregar.
 `
 
-// 🔹 ESTRUCTURAS PARA MENÚS DE LISTA
 const MAIN_MENU_LIST_SECTIONS = [
     {
         title: 'Productos',
@@ -175,7 +174,6 @@ const ORDER_MENU_LIST_SECTIONS = [
     },
 ]
 
-// 🔹 FUNCIÓN PARA ENVIAR LISTAS
 const sendListMessage = async (provider: Provider, to: string, listPayload: Record<string, any>) => {
     const vendor = (provider as any)?.vendor
     if (!vendor?.sendMessage) return false
@@ -199,7 +197,6 @@ const buildOrderMenuList = () => ({
     sections: ORDER_MENU_LIST_SECTIONS,
 })
 
-// 🔹 PARSEADORES DE TEXTO
 const parseProduct = (text: string) => {
     const normalized = normalizeText(text)
     const match = PRODUCT_OPTIONS.find((option) => option.keywords.some((keyword) => normalized.includes(keyword)))
@@ -228,7 +225,6 @@ const parseQuantity = (text: string) => {
     return Number.isFinite(value) && value > 0 ? value : null
 }
 
-// 🔹 MENÚ DE DUDAS / PREGUNTAS FRECUENTES
 const buildFaqMenuMessage = (title: string) => {
     const lines = FAQ_TOPICS.map((topic) => `${topic.key}️⃣ ${topic.label}`)
     return `
@@ -284,7 +280,6 @@ const handleFaqMenu = async (ctx, { gotoFlow, flowDynamic, state }) => {
     await flowDynamic('⚠️ Opción no válida. Escribe un número del 1 al 5 o elige una de las opciones del menú.')
 }
 
-// 🔹 FLUJOS DE DUDAS POR PRODUCTO
 const kombuchaFaqFlow = addKeyword<Provider, Database>(['duda kombucha', 'kombucha duda'])
     .addAnswer(buildFaqMenuMessage('KOMBUCHA'), { capture: true, buttons: buildFaqButtons() }, async (ctx, tools) => {
         tools.state.update({
@@ -390,7 +385,6 @@ const carneFaqFlow = addKeyword<Provider, Database>(['duda carne', 'duda cordero
         return handleFaqMenu(ctx, tools)
     })
 
-// 🔹 FLUJO PRINCIPAL DE PEDIDO
 const pedidoFlow = addKeyword<Provider, Database>(['pedido', 'comprar', 'hacer pedido'])
     .addAnswer(`
 🛒 INICIANDO PEDIDO
@@ -516,7 +510,6 @@ En breve nos pondremos en contacto contigo para confirmar el pago y la hora de e
         `)
     })
 
-// 🔹 FLUJO DE DUDAS GENERALES
 const dudaFlow = addKeyword<Provider, Database>(['duda', 'pregunta', 'consulta', 'tengo una duda'])
     .addAnswer(`
 ❓ ¿Sobre qué producto tienes dudas?
@@ -557,7 +550,6 @@ O escribe "Hacer pedido" si ya deseas comprar.
         await flowDynamic('Escribe un número del 1 al 7 o selecciona una opción.')
     })
 
-// 🔹 FLUJO DE CONTACTO Y UBICACIÓN
 const contactFlow = addKeyword<Provider, Database>(['hablar', 'contacto', 'asesor', 'hablar con nosotros'])
     .addAnswer(`
 📞 Claro que sí. En un momento uno de nuestros asesores te atenderá personalmente.
@@ -583,7 +575,6 @@ https://maps.app.goo.gl/e2SGQNkZDPid6CWG6
         return gotoFlow(welcomeFlow)
     })
 
-// 🔹 FLUJOS DE INFORMACIÓN DE PRODUCTOS
 const cafeFlow = addKeyword<Provider, Database>(['cafe', 'café', 'cafe artesanal'])
     .addAnswer(`
 ☕ CAFÉ ARTESANAL
@@ -785,17 +776,27 @@ Cortes delgados y amplios, ideales para rellenar o asar rápido.
 `, { media: './assets/catalogoimagenes/gaoneras.jpg.png' })
     .addAnswer(ACTION_MENU_MESSAGE, { capture: true, buttons: ACTION_MENU_BUTTONS }, handleActionMenu)
 
-// ✅ FLUJO DE BIENVENIDA - PALABRAS CLAVE AQUÍ (LÍNEA 590)
+// ✅ AQUÍ ESTÁ LO QUE ME PEDISTE EXACTAMENTE
 const welcomeFlow = addKeyword<Provider, Database>([
-    'hola', 'holas', 'ola', 'holi', 'holaa', 'holaaa', 
-    'buenas', 'buenos dias', 'buenas tardes', 'buenas noches',
-    'menu', 'menú', 'inicio', 'empezar', 'entrar', 'info', 'informacion'
+    'hola',
+    'buenas',
+    'info',
+    'informacion',
+    'menú',
+    'menu',
+    'inicio',
+    'empezar',
+    'entrada',
+    'ola',
+    'holi',
+    'holaa'
 ])
     .addAction(async (ctx, { provider }) => {
         await sendListMessage(provider, ctx.from, buildMainMenuList())
     })
     .addAnswer(MAIN_MENU_MESSAGE, { capture: true }, async (ctx, { gotoFlow, flowDynamic }) => {
         const text = normalizeText(ctx.body)
+        
         if (text.startsWith('1') || text.includes('kombucha')) return gotoFlow(kombuchaFlow)
         if (text.startsWith('2') || text.includes('kéfir')) return gotoFlow(kefirFlow)
         if (text.startsWith('3') || text.includes('vinagre')) return gotoFlow(vinagreFlow)
@@ -805,10 +806,12 @@ const welcomeFlow = addKeyword<Provider, Database>([
         if (text.startsWith('7') || text.includes('cordero')) return gotoFlow(carneFlow)
         if (text.startsWith('8') || text.includes('ubicación')) return gotoFlow(ubicacionFlow)
         if (text.startsWith('9') || text.includes('hablar')) return gotoFlow(contactFlow)
-        await flowDynamic('⚠️ Opción no válida. Escribe un número del 1 al 9.')
+
+        await flowDynamic('⚠️ Opción no válida. Escribe un número del 1 al 9 o una palabra clave como "menú" o "inicio".')
+        return gotoFlow(welcomeFlow)
     })
 
-// ✅ CONFIGURACIÓN ESPECIAL PARA RENDER (LO QUE FALTABA)
+// ✅ CONFIGURACIÓN FINAL CORREGIDA
 const main = async () => {
     const adapterFlow = createFlow([
         welcomeFlow,
@@ -847,11 +850,10 @@ const main = async () => {
         contactFlow,
     ])
 
-    // ✅ ARREGLO CLAVE: SESIÓN EN MEMORIA PARA RENDER
     const adapterProvider = createProvider(Provider, { 
         version: [2, 3000, 1035824857],
         session: { 
-            path: '/tmp/session', // ✅ RUTA PERMITIDA EN RENDER
+            path: './session',
             read: true,
             write: true
         }
